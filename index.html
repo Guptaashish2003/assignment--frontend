@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Dashboard - Codename</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideRight {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-fadeIn { animation: fadeIn 0.6s ease-out; }
+        .animate-slideRight { animation: slideRight 0.6s ease-out; }
+        .animate-slideUp { animation: slideUp 0.6s ease-out; }
+        .loading-spinner { 
+            border: 4px solid #f3f4f6; 
+            border-top: 4px solid #ec4899; 
+            border-radius: 50%; 
+            width: 60px; 
+            height: 60px; 
+            animation: spin 1s linear infinite; 
+        }
+        @keyframes spin { 
+            0% { transform: rotate(0deg); } 
+            100% { transform: rotate(360deg); } 
+        }
+        .nested-item {
+            position: relative;
+        }
+        .nested-item::before {
+            content: '';
+            position: absolute;
+            left: -12px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #e5e7eb;
+        }
+        .sidebar-collapsed {
+            width: 0;
+            overflow: hidden;
+            transition: width 0.3s ease;
+        }
+        .sidebar-expanded {
+            width: 16rem;
+            transition: width 0.3s ease;
+        }
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #e5e7eb #f9fafb;
+        }
+        *::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        *::-webkit-scrollbar-track {
+            background: #f9fafb;
+        }
+        *::-webkit-scrollbar-thumb {
+            background-color: #e5e7eb;
+            border-radius: 20px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 overflow-hidden">
+    <!-- Loading Screen -->
+    <div id="loadingScreen" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
+        <div class="text-center">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-600 font-medium">Loading dashboard...</p>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="mainContent" class="flex h-screen opacity-0">
+        <!-- Sidebar Toggle Button (Mobile) -->
+        <button id="sidebarToggle" class="fixed top-4 left-4 z-50 lg:hidden bg-white p-2 rounded-lg shadow-lg">
+            <i class="fas fa-bars text-gray-600"></i>
+        </button>
+
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar-expanded bg-white border-r border-gray-200 flex flex-col animate-slideRight overflow-y-auto fixed lg:relative z-40 h-full">
+            <!-- Logo -->
+            <div class="p-4 border-b border-gray-200 flex-shrink-0">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                        <span class="text-white font-bold text-sm">C</span>
+                    </div>
+                    <span class="font-semibold text-gray-800">Codename.com</span>
+                    <i class="fas fa-chevron-down text-gray-400 text-xs ml-auto"></i>
+                </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-4 overflow-y-auto">
+                <!-- Top Menu -->
+                <div class="space-y-1 mb-6">
+                    <button class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                        <i class="far fa-star w-4"></i>
+                        <span>Starred</span>
+                    </button>
+                    <button class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                        <i class="fas fa-rotate-left w-4"></i>
+                        <span>Recent</span>
+                    </button>
+                </div>
+
+                <!-- Sales & Goals -->
+                <div class="space-y-1 mb-6">
+                    <button class="w-full text-left px-3 py-2 text-sm text-gray-800 font-medium hover:bg-gray-50 rounded-lg transition-all">
+                        Sales list
+                    </button>
+                    <button class="w-full text-left px-3 py-2 text-sm text-gray-800 font-medium hover:bg-gray-50 rounded-lg transition-all">
+                        Goals
+                    </button>
+                    <button class="w-full flex items-center gap-3 px-3 py-2 bg-pink-500 text-white rounded-lg transition-all">
+                        <i class="fas fa-chart-bar w-4"></i>
+                        <span>Dashboard</span>
+                    </button>
+                </div>
+
+                <!-- Codename Section -->
+                <div class="mb-6">
+                    <div class="px-3 py-2 text-xs font-semibold text-gray-500">Codename</div>
+                    
+                    <!-- Shared with me (Collapsible) -->
+                    <div>
+                        <button onclick="toggleSection('sharedSection')" class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-all">
+                            <span class="font-medium">Shared with me</span>
+                            <i id="sharedSectionIcon" class="fas fa-chevron-down text-xs transition-transform"></i>
+                        </button>
+                        <div id="sharedSection" class="ml-6 space-y-1 mt-1">
+                            <div class="nested-item pl-3">
+                                <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                    Cargo2go
+                                </button>
+                            </div>
+                            <div class="nested-item pl-3">
+                                <button class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                    <span>Cloudz3r</span>
+                                    <span class="w-5 h-5 bg-pink-500 text-white text-xs rounded flex items-center justify-center font-semibold">2</span>
+                                </button>
+                            </div>
+                            <div class="nested-item pl-3">
+                                <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                    Idioma
+                                </button>
+                            </div>
+                            <div class="nested-item pl-3">
+                                <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                    Syllables
+                                </button>
+                            </div>
+                            <div class="nested-item pl-3">
+                                <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                    x-Qb
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reports Section -->
+                <div>
+                    <button onclick="toggleSection('reportsSection')" class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-800 hover:bg-gray-50 rounded-lg transition-all">
+                        <span class="font-medium">Reports</span>
+                        <i id="reportsSectionIcon" class="fas fa-chevron-down text-xs transition-transform"></i>
+                    </button>
+                    
+                    <div id="reportsSection" class="ml-6 space-y-1 mt-1">
+                        <!-- Share with me (Nested Collapsible) -->
+                        <div class="nested-item pl-3">
+                            <button onclick="toggleSection('shareSection')" class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                <span>Share with me</span>
+                                <i id="shareSectionIcon" class="fas fa-chevron-down text-xs transition-transform"></i>
+                            </button>
+                            <div id="shareSection" class="ml-6 space-y-1 mt-1">
+                                <div class="nested-item pl-3">
+                                    <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                        Deals by user
+                                    </button>
+                                </div>
+                                <div class="nested-item pl-3">
+                                    <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                        Deal duration
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- My reports (Nested Collapsible) -->
+                        <div class="nested-item pl-3">
+                            <button onclick="toggleSection('myReportsSection')" class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                <span>My reports</span>
+                                <i id="myReportsSectionIcon" class="fas fa-chevron-down text-xs transition-transform"></i>
+                            </button>
+                            <div id="myReportsSection" class="ml-6 space-y-1 mt-1">
+                                <div class="nested-item pl-3">
+                                    <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                        Emails received
+                                    </button>
+                                </div>
+                                <div class="nested-item pl-3">
+                                    <button class="w-full text-left px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                        Deal duration
+                                    </button>
+                                </div>
+                                <div class="nested-item pl-3">
+                                    <button class="w-full text-left px-3 py-2 text-sm text-pink-500 hover:bg-pink-50 rounded-lg transition-all font-medium">
+                                        New report
+                                    </button>
+                                </div>
+                                <div class="nested-item pl-3">
+                                    <button class="w-full flex items-center justify-between px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                                        <span>Analytics</span>
+                                        <span class="w-5 h-5 bg-pink-500 text-white text-xs rounded flex items-center justify-center font-semibold">2</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-500 hover:bg-gray-50 rounded-lg transition-all mt-4">
+                        <i class="fas fa-link text-xs"></i>
+                        <span>Manage folders</span>
+                    </button>
+                </div>
+            </nav>
+
+            <!-- Bottom Icons -->
+            <div class="p-4 border-t border-gray-200 space-y-3 flex-shrink-0">
+                <button class="w-full flex items-center justify-center p-3 text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                    <i class="far fa-lightbulb"></i>
+                </button>
+                <button class="w-full flex items-center justify-center p-3 text-gray-600 hover:bg-gray-50 rounded-lg transition-all">
+                    <i class="fas fa-cog"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Overlay for mobile -->
+        <div id="sidebarOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden lg:hidden" onclick="closeSidebar()"></div>
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto">
+            <!-- Header -->
+            <header class="bg-white border-b border-gray-200 p-4 animate-slideUp">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-4 flex-1 max-w-xl">
+                        <div class="relative flex-1">
+                            <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <input type="text" placeholder='Try searching "insights"' class="w-full pl-10 pr-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all text-sm">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button class="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                            <i class="fas fa-bars text-gray-600"></i>
+                        </button>
+                        <div class="w-8 h-8 bg-gradient-to-br from-orange-400 to-pink-500 rounded-lg"></div>
+                        <button class="w-8 h-8 bg-pink-500 rounded-full flex items-center justify-center text-white hover:bg-pink-600 transition-all">
+                            <i class="fas fa-plus text-sm"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- User Tabs -->
+                <div class="flex items-center gap-3">
+                    <button class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-all">
+                        <i class="fas fa-plus text-sm"></i>
+                    </button>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-gray-400 flex items-center justify-center text-xs font-semibold text-white">AA</div>
+                        <div class="w-8 h-8 rounded-full bg-orange-400 flex items-center justify-center text-xs font-semibold text-white">EY</div>
+                        <div class="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-xs font-semibold text-white">MA</div>
+                        <div class="w-8 h-8 rounded-full bg-black flex items-center justify-center">
+                            <span class="text-white font-bold text-xs">C</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="p-6">
+                <!-- Title Bar -->
+                <div class="flex items-center justify-between mb-6 animate-slideUp">
+                    <h1 class="text-3xl font-light text-gray-300">New report</h1>
+                    <div class="flex items-center gap-3">
+                        <button class="p-2 hover:bg-white rounded-lg transition-all">
+                            <i class="fas fa-sliders-h text-gray-600"></i>
+                        </button>
+                        <button class="p-2 hover:bg-white rounded-lg transition-all">
+                            <i class="fas fa-download text-gray-600"></i>
+                        </button>
+                        <button class="p-2 hover:bg-white rounded-lg transition-all">
+                            <i class="fas fa-share-alt text-gray-600"></i>
+                        </button>
+                        <div class="flex items-center gap-2 px-4 py-2 bg-white rounded-lg border border-gray-200">
+                            <label class="relative inline-flex items-center cursor-pointer">
+                                <input type="checkbox" checked class="sr-only peer">
+                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-black"></div>
+                            </label>
+                            <span class="text-sm font-medium">Timeframe</span>
+                            <span class="text-sm text-gray-600">Sep 1 - Nov 30, 2023</span>
+                            <i class="fas fa-chevron-down text-xs text-gray-400"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Revenue Card -->
+                <div class="bg-white rounded-2xl p-6 mb-6 shadow-sm animate-slideUp">
+                    <h2 class="text-sm font-medium text-gray-900 mb-3">Revenue</h2>
+                    
+                    <div class="flex items-start justify-between mb-6">
+                        <div class="flex-1">
+                            <div class="flex items-baseline gap-2 mb-2">
+                                <span class="text-5xl font-bold text-gray-900">$528,976</span>
+                                <span class="text-5xl font-light text-gray-300">.82</span>
+                                <span class="px-2.5 py-1 bg-pink-500 text-white text-xs font-semibold rounded-full">-7.9%</span>
+                                <span class="px-2.5 py-1 bg-red-50 text-red-600 text-xs font-medium rounded-full">-$27,335.09</span>
+                            </div>
+                            <p class="text-sm text-gray-500">
+                                vs prev. $501,641.73 Jun 1 - Aug 31, 2023 
+                                <i class="fas fa-chevron-down text-xs ml-1"></i>
+                            </p>
+                        </div>
+
+                        <!-- Right Cards -->
+                        <div class="flex gap-3">
+                            <!-- Top Sales Card -->
+                            <div class="bg-gray-50 rounded-xl p-4 min-w-[140px]">
+                                <div class="text-xs text-gray-600 mb-2">Top sales</div>
+                                <div class="text-3xl font-bold text-gray-800 mb-3">72</div>
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center text-[10px] text-white font-semibold">M</div>
+                                        <span class="text-sm text-gray-700">Mikasa</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-xs text-gray-400"></i>
+                                </div>
+                            </div>
+
+                            <!-- Best Deal Card (Black) -->
+                            <div class="bg-black rounded-xl p-4 min-w-[140px] text-white relative">
+                                <i class="fas fa-star absolute top-3 right-3 text-sm"></i>
+                                <div class="text-xs mb-2 opacity-80">Best deal</div>
+                                <div class="text-3xl font-bold mb-3">$42,300</div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm">Rolf Inc.</span>
+                                    <div class="w-5 h-5 bg-white rounded-full flex items-center justify-center">
+                                        <i class="fas fa-arrow-right text-black text-[10px]"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Deals Card (Pink Border) -->
+                            <div class="bg-white border-2 border-pink-500 rounded-xl p-4 min-w-[140px]">
+                                <div class="text-xs text-gray-600 mb-2">Deals</div>
+                                <div class="text-3xl font-light text-gray-300 mb-3">42%</div>
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-trophy text-pink-500 text-sm"></i>
+                                    <span class="text-sm font-semibold">5</span>
+                                </div>
+                            </div>
+
+                            <!-- Value Card -->
+                            <div class="bg-white border border-pink-200 rounded-xl p-4 min-w-[140px]">
+                                <div class="text-xs text-gray-600 mb-2">Value</div>
+                                <div class="text-3xl font-bold text-pink-500 mb-3">$288k</div>
+                                <div class="flex items-center gap-1">
+                                    <i class="fas fa-arrow-up text-pink-500 text-xs"></i>
+                                    <span class="text-sm font-semibold text-pink-500">7.9%</span>
+                                </div>
+                            </div>
+
+                            <!-- Win Rate Card -->
+                            <div class="bg-gray-50 rounded-xl p-4 min-w-[140px]">
+                                <div class="text-xs text-gray-600 mb-2">Win rate</div>
+                                <div class="text-3xl font-light text-gray-300 mb-3">61%</div>
+                                <div class="flex items-center gap-1">
+                                    <i class="fas fa-arrow-up text-gray-400 text-xs"></i>
+                                    <span class="text-sm font-medium text-gray-400">1.2%</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User Stats Row -->
+                    <div class="flex items-center gap-8 pt-5 border-t border-gray-100">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-gray-400"></div>
+                            <div>
+                                <div class="font-semibold text-gray-900">$209,633</div>
+                                <div class="text-xs text-gray-400">39.63%</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-cyan-500"></div>
+                            <div>
+                                <div class="font-semibold text-gray-900">$156,841</div>
+                                <div class="text-xs text-gray-400">29.65%</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-orange-400"></div>
+                            <div>
+                                <div class="font-semibold text-gray-900">$117,115</div>
+                                <div class="text-xs text-gray-400">22.14%</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-full bg-gray-800"></div>
+                            <div>
+                                <div class="font-semibold text-gray-900">$45,386</div>
+                                <div class="text-xs text-gray-400">8.58%</div>
+                            </div>
+                        </div>
+                        <button class="ml-auto px-6 py-2.5 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-all">
+                            Details
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bottom Section - Sales Table & Chart -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-slideUp">
+                    <!-- Sales Table Card -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="mb-6">
+                            <div class="flex items-center justify-between text-xs text-gray-500 mb-4 px-3">
+                                <div class="flex-1">Sales</div>
+                                <div class="w-24 text-right">Revenue</div>
+                                <div class="w-16 text-right">Leads</div>
+                                <div class="w-16 text-right">KPI</div>
+                                <div class="w-16 text-right">W/L</div>
+                            </div>
+                            
+                            <!-- Table Rows -->
+                            <div class="space-y-3">
+                                <!-- Armin A. -->
+                                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all">
+                                    <div class="flex items-center gap-3 flex-1">
+                                        <div class="w-8 h-8 rounded-full bg-gray-400"></div>
+                                        <span class="text-sm font-medium">Armin A.</span>
+                                    </div>
+                                    <div class="w-24 text-right text-sm font-semibold">$209,633</div>
+                                    <div class="w-16 text-right">
+                                        <span class="bg-gray-900 text-white px-2 py-0.5 rounded text-xs font-medium">441</span>
+                                    </div>
+                                    <div class="w-16 text-right text-sm">118</div>
+                                    <div class="w-16 text-right text-sm">0.84</div>
+                                    <div class="w-16 text-right text-sm">31%</div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="bg-gray-900 text-white px-2 py-0.5 rounded text-xs font-medium">12</span>
+                                        <span class="text-sm">29</span>
+                                    </div>
+                                </div>
+
+                                <!-- Mikasa A. -->
+                                <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all">
+                                    <div class="flex items-center gap-3 flex-1">
+                                        <div class="w-8 h-8 rounded-full bg-cyan-500"></div>
+                                        <span class="text-sm font-medium">Mikasa A.</span>
+                                    </div>
+                                    <div class="w-24 text-right text-sm font-semibold">$156,841</div>
+                                    <div class="w-16 text-right">
+                                        <span class="bg-gray-900 text-white px-2 py-0.5 rounded text-xs font-medium">574</span>
+                                    </div>
+                                    <div class="w-16 text-right text-sm">103</div>
+                                    <div class="w-16 text-right text-sm">0.89</div>
+                                    <div class="w-16 text-right text-sm">39%</div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="bg-gray-900 text-white px-2 py-0.5 rounded text-xs font-medium">21</span>
+                                        <span class="text-sm">33</span>
+                                        <button class="w-6 h-6 bg-pink-500 rounded-full flex items-center justify-center ml-2 hover:bg-pink-600 transition-all">
+                                            <i class="fas fa-times text-white text-xs"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Achievement Badges -->
+                        <div class="grid grid-cols-3 gap-3 mb-6">
+                            <div class="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
+                                <div class="text-xs text-gray-700">Top sales 👍</div>
+                            </div>
+                            <div class="p-3 bg-orange-50 rounded-lg border border-orange-200">
+                                <div class="text-xs text-gray-700">Sales streak 🔥</div>
+                            </div>
+                            <div class="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <div class="text-xs text-gray-700">Top review 👍</div>
+                            </div>
+                        </div>
+
+                        <!-- Work with platforms -->
+                        <div class="mb-6">
+                            <div class="text-sm font-semibold mb-3">Work with platforms</div>
+                            
+                            <div class="space-y-3">
+                                <div class="flex gap-3">
+                                    <div class="flex-1 p-4 border border-gray-200 rounded-lg hover:border-pink-300 transition-all cursor-pointer">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fab fa-dribbble text-pink-500"></i>
+                                            <span class="text-sm font-medium">Dribbble</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex-1 p-4 border border-gray-200 rounded-lg hover:border-pink-300 transition-all cursor-pointer">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fab fa-instagram text-pink-600"></i>
+                                            <span class="text-sm font-medium">Instagram</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="p-4 bg-pink-50 border-2 border-pink-500 rounded-lg relative">
+                                    <div class="absolute top-3 right-3 flex gap-2">
+                                        <span class="bg-pink-500 text-white px-2 py-1 rounded-full text-xs font-semibold">3</span>
+                                        <span class="bg-pink-500 text-white px-2 py-1 rounded-full text-xs font-semibold">$156,841</span>
+                                    </div>
+                                    <div class="flex items-center gap-2 mb-3">
+                                        <i class="fab fa-google text-red-500"></i>
+                                        <span class="text-sm font-medium">Google</span>
+                                    </div>
+                                    <div class="text-sm text-gray-600">
+                                        <span class="font-semibold">14.1%</span> 
+                                        <span class="text-gray-400 ml-2">$77,115</span>
+                                    </div>
+                                </div>
+
+                                <div class="space-y-2">
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div>
+                                            <span class="font-semibold">28.1%</span>
+                                            <span class="text-gray-400 ml-2">$44,072</span>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <i class="fas fa-circle text-gray-900 text-xs"></i>
+                                            <span class="font-semibold">5.4%</span>
+                                            <span class="text-gray-400 ml-1">$8,469</span>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center justify-between text-sm">
+                                        <div class="flex items-center gap-2">
+                                            <i class="fab fa-instagram text-pink-600"></i>
+                                            <span class="font-medium">Other</span>
+                                        </div>
+                                        <div>
+                                            <span class="font-semibold">7.1%</span>
+                                            <span class="text-gray-400 ml-2">$11,135</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Percentage Display -->
+                        <div class="mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="text-3xl font-bold">45.3%</div>
+                                <div class="text-gray-400 text-lg">$71,048</div>
+                            </div>
+                            <div class="text-sm font-semibold mb-3">Sales dynamic</div>
+                        </div>
+
+                        <!-- Chart SVG -->
+                        <div class="relative h-32 mb-6">
+                            <svg class="w-full h-full" viewBox="0 0 400 120">
+                                <polyline points="0,80 50,60 100,70 150,50 200,55 250,45 300,50 350,40" 
+                                          fill="none" stroke="#ec4899" stroke-width="2"/>
+                                <polyline points="0,90 50,85 100,88 150,80 200,82 250,75 300,78 350,70" 
+                                          fill="none" stroke="#10b981" stroke-width="2"/>
+                                <circle cx="150" cy="50" r="4" fill="#ec4899"/>
+                                <circle cx="250" cy="75" r="4" fill="#10b981"/>
+                                <circle cx="350" cy="70" r="4" fill="#3b82f6"/>
+                            </svg>
+                            <div class="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-gray-400 px-2">
+                                <span>W 5</span>
+                                <span>W 7</span>
+                                <span>W 9</span>
+                                <span>W 11</span>
+                            </div>
+                        </div>
+
+                        <!-- Eren Y. Row -->
+                        <div class="pt-4 border-t border-gray-100">
+                            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all">
+                                <div class="flex items-center gap-3 flex-1">
+                                    <div class="w-8 h-8 rounded-full bg-orange-400"></div>
+                                    <span class="text-sm font-medium">Eren Y.</span>
+                                </div>
+                                <div class="w-24 text-right text-sm font-semibold">$117,115</div>
+                                <div class="w-16 text-right">
+                                    <span class="bg-gray-900 text-white px-2 py-0.5 rounded text-xs font-medium">22</span>
+                                </div>
+                                <div class="w-16 text-right text-sm">84</div>
+                                <div class="w-16 text-right text-sm">0.79</div>
+                                <div class="w-16 text-right text-sm">32%</div>
+                                <div class="flex items-center gap-2">
+                                    <span class="bg-gray-900 text-white px-2 py-0.5 rounded text-xs font-medium">7</span>
+                                    <span class="text-sm">15</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Side - Platform Stats -->
+                    <div class="bg-white rounded-2xl p-6 shadow-sm">
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-3">
+                                <button class="p-2 hover:bg-gray-100 rounded-lg transition-all">
+                                    <i class="fas fa-bars text-gray-600"></i>
+                                </button>
+                                <button class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all text-sm">
+                                    <span>Filters</span>
+                                    <i class="fas fa-sliders-h text-xs"></i>
+                                </button>
+                                <button class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all">
+                                    <i class="fas fa-chart-bar text-sm"></i>
+                                    <i class="fas fa-chevron-down text-xs"></i>
+                                </button>
+                            </div>
+                            <button class="flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg hover:bg-gray-50 transition-all text-sm">
+                                <span>Filters</span>
+                                <i class="fas fa-sliders-h text-xs"></i>
+                            </button>
+                        </div>
+
+                        <!-- Platform List with Icons -->
+                        <div class="space-y-3 mb-6">
+                            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <i class="fab fa-dribbble text-pink-500 text-lg"></i>
+                                    <span class="text-sm font-medium">Dribbble</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-sm font-semibold">$227,459</span>
+                                    <span class="text-sm text-gray-500">43%</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <i class="fab fa-instagram text-pink-600 text-lg"></i>
+                                    <span class="text-sm font-medium">Instagram</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-sm font-semibold">$142,823</span>
+                                    <span class="text-sm text-gray-500">27%</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <i class="fab fa-behance text-blue-600 text-lg"></i>
+                                    <span class="text-sm font-medium">Behance</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-sm font-semibold">$89,935</span>
+                                    <span class="text-sm text-gray-500">11%</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between p-3 hover:bg-gray-50 rounded-lg transition-all cursor-pointer">
+                                <div class="flex items-center gap-3">
+                                    <i class="fab fa-google text-red-500 text-lg"></i>
+                                    <span class="text-sm font-medium">Google</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <span class="text-sm font-semibold">$37,028</span>
+                                    <span class="text-sm text-gray-500">7%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deals Amount Section -->
+                        <div class="mb-6 text-center">
+                            <div class="bg-gray-100 rounded-lg p-4 inline-flex items-center gap-2 mb-3">
+                                <i class="fab fa-google text-gray-400"></i>
+                                <i class="fab fa-behance text-gray-400"></i>
+                                <i class="fab fa-instagram text-gray-400"></i>
+                                <i class="fab fa-dribbble text-gray-400"></i>
+                            </div>
+                            <div class="text-sm text-gray-600 mb-1">Deals amount</div>
+                            <div class="text-xs text-gray-500">by referrer category</div>
+                        </div>
+
+                        <!-- Chart Card (Pink Gradient) -->
+                        <div class="bg-gradient-to-br from-pink-500 to-pink-600 rounded-xl p-6 text-white mb-6">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <div class="text-xs opacity-80 mb-1">Platform value</div>
+                                    <div class="text-xl font-bold flex items-center gap-2">
+                                        Dribbble 
+                                        <i class="fas fa-chevron-down text-sm"></i>
+                                    </div>
+                                </div>
+                                <div class="flex gap-2">
+                                    <button class="px-3 py-1 bg-white/20 rounded text-xs font-medium">Revenue</button>
+                                    <button class="px-3 py-1 bg-white/10 rounded text-xs">Leads</button>
+                                    <button class="px-3 py-1 bg-white/10 rounded text-xs">W/L</button>
+                                </div>
+                            </div>
+
+                            <div class="mb-6">
+                                <div class="flex items-center justify-between mb-2">
+                                    <span class="text-2xl font-bold">$18,552</span>
+                                    <span class="bg-pink-700 px-2 py-1 rounded text-xs">$11,635</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4 text-sm">
+                                    <div>
+                                        <div class="opacity-80">Leads</div>
+                                        <div><span class="font-bold">373</span> <span class="opacity-60">97,276</span></div>
+                                    </div>
+                                    <div>
+                                        <div class="opacity-80">Win/loss</div>
+                                        <div><span class="font-bold">18%</span> <span class="opacity-60">51/318</span></div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Bar Chart -->
+                            <div class="flex items-end justify-between gap-2 h-24">
+                                <div class="bg-white/30 rounded-t flex-1" style="height: 40%;"></div>
+                                <div class="bg-white/30 rounded-t flex-1" style="height: 60%;"></div>
+                                <div class="bg-white/30 rounded-t flex-1" style="height: 45%;"></div>
+                                <div class="bg-white/30 rounded-t flex-1" style="height: 75%;"></div>
+                                <div class="bg-white/30 rounded-t flex-1" style="height: 55%;"></div>
+                                <div class="bg-pink-700 rounded-t flex-1" style="height: 90%;"></div>
+                            </div>
+                            <div class="flex justify-between text-xs opacity-60 mt-2">
+                                <span>Feb</span>
+                                <span>Jun</span>
+                                <span>Sep</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Loading animation
+        setTimeout(() => {
+            document.getElementById('loadingScreen').style.opacity = '0';
+            document.getElementById('loadingScreen').style.transition = 'opacity 0.5s';
+            setTimeout(() => {
+                document.getElementById('loadingScreen').style.display = 'none';
+                document.getElementById('mainContent').style.opacity = '1';
+                document.getElementById('mainContent').style.transition = 'opacity 0.6s';
+            }, 500);
+        }, 1500);
+
+        // Toggle section function
+        function toggleSection(sectionId) {
+            const section = document.getElementById(sectionId);
+            const icon = document.getElementById(sectionId + 'Icon');
+            
+            if (section.style.display === 'none' || section.style.display === '') {
+                section.style.display = 'block';
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                section.style.display = 'none';
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
+
+        // Sidebar toggle for mobile
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('sidebar-collapsed');
+            sidebar.classList.toggle('sidebar-expanded');
+            sidebarOverlay.classList.toggle('hidden');
+        });
+
+        function closeSidebar() {
+            sidebar.classList.add('sidebar-collapsed');
+            sidebar.classList.remove('sidebar-expanded');
+            sidebarOverlay.classList.add('hidden');
+        }
+
+        // Close sidebar on window resize to large screens
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+                sidebar.classList.remove('sidebar-collapsed');
+                sidebar.classList.add('sidebar-expanded');
+                sidebarOverlay.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
